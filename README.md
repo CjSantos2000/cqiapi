@@ -1,0 +1,2 @@
+# cqiapi
+Django Project
