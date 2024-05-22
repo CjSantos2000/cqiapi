@@ -1,0 +1,12 @@
+pip install django
+pip install django-cors-headers
+pip install python-docx
+pip install gspread
+pip install oauth2client
+pip install pandas
+
+pip install google-api-python-client
+
+pip install gspread-formatting
+
+pip install openpyxl

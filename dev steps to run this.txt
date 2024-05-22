@@ -1,0 +1,6 @@
+1. pipenv shell  <--- hit enter
+
+2. pip3 install -r requirements.txt   <--- hit enter
+
+3. python manage.py runserver 8002
+
