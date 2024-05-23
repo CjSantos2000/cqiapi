@@ -10,6 +10,7 @@ python-docx = "*"
 gspread = "*"
 oauth2client = "*"
 pandas = "*"
+gunicorn = "*"
 
 [dev-packages]
 
