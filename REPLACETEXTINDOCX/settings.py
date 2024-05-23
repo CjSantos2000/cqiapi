@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-y!57y2f#!6h-6=@+bz%(q(0&x1qpo2zmoved11ai#)!t0km7bt
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*", "monkfish-app-58x4u.ondigitalocean.app"]
 
 
 # Application definition
