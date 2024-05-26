@@ -34,6 +34,9 @@ def download_obe(request):
         if record > 0:
             script_directory = os.path.dirname(os.path.abspath(__file__))
             output_file_path = os.path.join(script_directory, f'obe-{user_id}-{fileid}.docx')
+
+            print("script_directory:", script_directory)
+            print("output_file_path:", output_file_pathv)
         
             response = FileResponse(open(output_file_path, 'rb'))
             response['Content-Disposition'] = 'attachment; filename="obe-output.docx"'
