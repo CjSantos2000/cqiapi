@@ -17,11 +17,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from gspread_formatting import *
-script_directory = os.path.dirname(os.path.abspath(__file__))
-output_file_path = os.path.join(script_directory, f'obe.docx')
-print("script_directory:", script_directory)
-print("output_file_path:", output_file_path)
-response = FileResponse(open(output_file_path, 'rb'))
+
 
 
 @csrf_exempt
@@ -35,7 +31,7 @@ def download_obe(request):
        
         record = DownloadModel.objects.filter(user_id=user_id,record_id=fileid,form_name=form_name).count()
         if record > 0:
-            script_directory = os.path.dirname(os.path.abspath(__file__))
+            script_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app")
             output_file_path = os.path.join(script_directory, f'obe-{user_id}-{fileid}.docx')
         
             response = FileResponse(open(output_file_path, 'rb'))
