@@ -28,10 +28,18 @@ def download_obe(request):
         user_id = data['user_id']
         form_name = "obe"
         fileid = data['fileid']
+        script_directory = os.path.dirname(os.path.abspath(__file__))
+        output_file_path = os.path.join(script_directory, f'obe-{user_id}-{fileid}.docx')
+
+        print("script_directory", script_directory)
+
+        response = FileResponse(open(output_file_path, 'rb'))
+
+        print(response)
        
         record = DownloadModel.objects.filter(user_id=user_id,record_id=fileid,form_name=form_name).count()
         if record > 0:
-            script_directory = os.path.join(os.path.dirname(os.path.abspath(__name__)), "app")
+            script_directory = os.path.dirname(os.path.abspath(__file__))
             output_file_path = os.path.join(script_directory, f'obe-{user_id}-{fileid}.docx')
         
             response = FileResponse(open(output_file_path, 'rb'))
