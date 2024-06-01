@@ -574,7 +574,14 @@ def obe(request):
         end = time.time()
         print("End-Time: ", end)
         print("Time: ", end - start)
-        return JsonResponse({"status": "success", "message": "File created"})
+
+        end = time.time()
+        print("End-Time: ", end)
+        print("Time: ", end - start)
+
+        response = FileResponse(open(output_file_path, "rb"))
+        response["Content-Disposition"] = 'attachment; filename="datasheet-output.docx"'
+        return response
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
@@ -900,6 +907,8 @@ def obe_update(request):
 @csrf_exempt
 def cam(request):
     if request.method == "POST":
+        start = time.time()
+        print("Start-Time: ", start)
         data = json.loads(request.body)
 
         class_record = data["class_record_auto_fetch_data"]
