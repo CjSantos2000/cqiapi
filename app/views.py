@@ -575,10 +575,6 @@ def obe(request):
         print("End-Time: ", end)
         print("Time: ", end - start)
 
-        end = time.time()
-        print("End-Time: ", end)
-        print("Time: ", end - start)
-
         response = FileResponse(open(output_file_path, "rb"))
         response["Content-Disposition"] = 'attachment; filename="datasheet-output.docx"'
         return response
@@ -915,16 +911,9 @@ def cam(request):
         user_id = data["user_id"]
         lastid = data["lastid"]
 
-        count = AutoFetchModel.objects.filter(user_id=user_id).count()
-        if count == 0:
-            s = AutoFetchModel(
-                user_id=user_id, category="auto-fetch-data", name=class_record
-            )
-            s.save()
-        else:
-            AutoFetchModel.objects.filter(
-                user_id=user_id, category="auto-fetch-data"
-            ).update(name=class_record)
+        obj, created = AutoFetchModel.objects.update_or_create(
+            user_id=user_id, category="auto-fetch-data", defaults={"name": class_record}
+        )
 
         inputvalues = [
             {"edit_values": "test values"},
@@ -1091,37 +1080,30 @@ def cam(request):
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "cam.docx")
-
         output_file_path = os.path.join(
             script_directory, f"cam-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="datasheet-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
         a = DownloadModel(user_id=user_id, record_id=lastid, form_name="matrix")
         a.save()
 
+        end = time.time()
+        print("End-Time: ", end)
+        print("Time: ", end - start)
+
+        response = FileResponse(open(output_file_path, "rb"))
+        response["Content-Disposition"] = 'attachment; filename="matrix-output.docx"'
         return response
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
@@ -1136,10 +1118,6 @@ def cam_update(request):
         lastid = data["updateid"]
         user_id = data["user_id"]
 
-        DownloadModel.objects.filter(
-            user_id=user_id, record_id=lastid, form_name="matrix"
-        ).delete()
-
         inputvalues = [
             {"edit_values": "test values"},
             {"button_count": "test values"},
@@ -1305,41 +1283,34 @@ def cam_update(request):
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "cam.docx")
-
-        filetorm = os.path.join(script_directory, f"cam-{user_id}-{lastid}.docx")
-        os.remove(filetorm)
-
         output_file_path = os.path.join(
             script_directory, f"cam-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
+        save_document_with_temp(doc, output_file_path)
 
-        a = DownloadModel(user_id=user_id, record_id=lastid, form_name="matrix")
-        a.save()
+        try:
+            DownloadModel.objects.update_or_create(
+                user_id=user_id, record_id=lastid, form_name="matrix", defaults={}
+            )
+        except DownloadModel.MultipleObjectsReturned:
+            DownloadModel.objects.filter(
+                user_id=user_id, record_id=lastid, form_name="matrix"
+            ).delete()
+            DownloadModel.objects.get_or_create(
+                user_id=user_id, record_id=lastid, form_name="matrix"
+            )
 
-        response["Content-Disposition"] = 'attachment; filename="cam-output.docx"'
-        return response
+        return JsonResponse({"status": "success", "message": "File created"})
 
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
@@ -1348,21 +1319,16 @@ def cam_update(request):
 @csrf_exempt
 def datasheet(request):
     if request.method == "POST":
+        start = time.time()
+        print("Start-Time: ", start)
         data = json.loads(request.body)
 
         class_record = data["class_record_auto_fetch_data"]
         user_id = data["user_id"]
         lastid = data["lastid"]
-        count = AutoFetchModel.objects.filter(user_id=user_id).count()
-        if count == 0:
-            s = AutoFetchModel(
-                user_id=user_id, category="auto-fetch-data", name=class_record
-            )
-            s.save()
-        else:
-            AutoFetchModel.objects.filter(
-                user_id=user_id, category="auto-fetch-data"
-            ).update(name=class_record)
+        obj, created = AutoFetchModel.objects.update_or_create(
+            user_id=user_id, category="auto-fetch-data", defaults={"name": class_record}
+        )
 
         inputvalues = [
             {"edit_values": "test values"},
@@ -1747,42 +1713,36 @@ def datasheet(request):
             {"id": ""},
             {"form_id": ""},
         ]
-
         input_w_values_data = data["input_w_values_data"]
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "datasheet.docx")
-
         output_file_path = os.path.join(
             script_directory, f"datasheet-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="datasheet-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
         a = DownloadModel(user_id=user_id, record_id=lastid, form_name="datasheet")
         a.save()
+
+        end = time.time()
+        print("End-Time: ", end)
+        print("Time: ", end - start)
+
+        response = FileResponse(open(output_file_path, "rb"))
+        response["Content-Disposition"] = 'attachment; filename="datasheet-output.docx"'
         return response
+
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
@@ -2188,40 +2148,35 @@ def datasheet_update(request):
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "datasheet.docx")
-
-        filetorm = os.path.join(script_directory, f"datasheet-{user_id}-{lastid}.docx")
-        os.remove(filetorm)
-
         output_file_path = os.path.join(
             script_directory, f"datasheet-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="datasheet-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
-        a = DownloadModel(user_id=user_id, record_id=lastid, form_name="datasheet")
-        a.save()
-        return response
+        try:
+            DownloadModel.objects.update_or_create(
+                user_id=user_id, record_id=lastid, form_name="datasheet", defaults={}
+            )
+        except DownloadModel.MultipleObjectsReturned:
+            DownloadModel.objects.filter(
+                user_id=user_id, record_id=lastid, form_name="datasheet"
+            ).delete()
+            DownloadModel.objects.get_or_create(
+                user_id=user_id, record_id=lastid, form_name="datasheet"
+            )
+
+        return JsonResponse({"status": "success", "message": "File created"})
+
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
@@ -2230,21 +2185,15 @@ def datasheet_update(request):
 def course_assessment(request):
     if request.method == "POST":
         # Process incoming data
+        start = time.time()
         data = json.loads(request.body)
 
         class_record = data["class_record_auto_fetch_data"]
         user_id = data["user_id"]
         lastid = data["lastid"]
-        count = AutoFetchModel.objects.filter(user_id=user_id).count()
-        if count == 0:
-            s = AutoFetchModel(
-                user_id=user_id, category="auto-fetch-data", name=class_record
-            )
-            s.save()
-        else:
-            AutoFetchModel.objects.filter(
-                user_id=user_id, category="auto-fetch-data"
-            ).update(name=class_record)
+        obj, created = AutoFetchModel.objects.update_or_create(
+            user_id=user_id, category="auto-fetch-data", defaults={"name": class_record}
+        )
 
         inputvalues = [
             {"edit_values": "test values"},
@@ -2348,37 +2297,32 @@ def course_assessment(request):
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "cas.docx")
-
         output_file_path = os.path.join(
             script_directory, f"cas-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="tos-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
         a = DownloadModel(user_id=user_id, record_id=lastid, form_name="summary")
         a.save()
+
+        end = time.time()
+        print("End-Time: ", end)
+        print("Time: ", end - start)
+
+        response = FileResponse(open(output_file_path, "rb"))
+        response["Content-Disposition"] = 'attachment; filename="course-output.docx"'
         return response
+
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
@@ -2392,10 +2336,6 @@ def course_assessment_update(request):
         user_id = data["user_id"]
         lastid = data["updateid"]
 
-        DownloadModel.objects.filter(
-            user_id=user_id, record_id=lastid, form_name="summary"
-        ).delete()
-
         inputvalues = [
             {"edit_values": "test values"},
             {"button_count": "test values"},
@@ -2498,40 +2438,35 @@ def course_assessment_update(request):
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "cas.docx")
-
-        filetorm = os.path.join(script_directory, f"cas-{user_id}-{lastid}.docx")
-        os.remove(filetorm)
-
         output_file_path = os.path.join(
             script_directory, f"cas-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="tos-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
-        a = DownloadModel(user_id=user_id, record_id=lastid, form_name="summary")
-        a.save()
-        return response
+        try:
+            DownloadModel.objects.update_or_create(
+                user_id=user_id, record_id=lastid, form_name="summary", defaults={}
+            )
+        except DownloadModel.MultipleObjectsReturned:
+            DownloadModel.objects.filter(
+                user_id=user_id, record_id=lastid, form_name="summary"
+            ).delete()
+            DownloadModel.objects.get_or_create(
+                user_id=user_id, record_id=lastid, form_name="summary"
+            )
+
+        return JsonResponse({"status": "success", "message": "File created"})
+
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
@@ -2540,20 +2475,14 @@ def course_assessment_update(request):
 def tos(request):
     if request.method == "POST":
         # Process incoming data
+        start = time.time()
         data = json.loads(request.body)
         class_record = data["class_record_auto_fetch_data"]
         user_id = data["user_id"]
         lastid = data["lastid"]
-        count = AutoFetchModel.objects.filter(user_id=user_id).count()
-        if count == 0:
-            s = AutoFetchModel(
-                user_id=user_id, category="auto-fetch-data", name=class_record
-            )
-            s.save()
-        else:
-            AutoFetchModel.objects.filter(
-                user_id=user_id, category="auto-fetch-data"
-            ).update(name=class_record)
+        obj, created = AutoFetchModel.objects.update_or_create(
+            user_id=user_id, category="auto-fetch-data", defaults={"name": class_record}
+        )
 
         inputvalues = [
             {"edit_values": "test values"},
@@ -2634,41 +2563,35 @@ def tos(request):
         ]
 
         input_w_values_data = data["input_w_values_data"]
-        print(data["input_w_values_data"])
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "tos.docx")
-
         output_file_path = os.path.join(
             script_directory, f"tos-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="tos-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
         a = DownloadModel(user_id=user_id, record_id=lastid, form_name="tos")
         a.save()
+
+        end = time.time()
+        print("End-Time: ", end)
+        print("Time: ", end - start)
+
+        response = FileResponse(open(output_file_path, "rb"))
+        response["Content-Disposition"] = 'attachment; filename="tos-output.docx"'
         return response
+
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
@@ -2681,10 +2604,6 @@ def tos_update(request):
         user_id = data["user_id"]
         lastid = data["updateid"]
 
-        DownloadModel.objects.filter(
-            user_id=user_id, record_id=lastid, form_name="tos"
-        ).delete()
-
         inputvalues = [
             {"edit_values": "test values"},
             {"button_count": "test values"},
@@ -2767,40 +2686,35 @@ def tos_update(request):
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "tos.docx")
-
-        filetorm = os.path.join(script_directory, f"tos-{user_id}-{lastid}.docx")
-        os.remove(filetorm)
-
         output_file_path = os.path.join(
             script_directory, f"tos-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="tos-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
-        a = DownloadModel(user_id=user_id, record_id=lastid, form_name="tos")
-        a.save()
-        return response
+        try:
+            DownloadModel.objects.update_or_create(
+                user_id=user_id, record_id=lastid, form_name="tos", defaults={}
+            )
+        except DownloadModel.MultipleObjectsReturned:
+            DownloadModel.objects.filter(
+                user_id=user_id, record_id=lastid, form_name="tos"
+            ).delete()
+            DownloadModel.objects.get_or_create(
+                user_id=user_id, record_id=lastid, form_name="tos"
+            )
+
+        return JsonResponse({"status": "success", "message": "File created"})
+
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
@@ -2808,21 +2722,15 @@ def tos_update(request):
 @csrf_exempt
 def plo(request):
     if request.method == "POST":
+        start = time.time()
         # Process incoming data
         data = json.loads(request.body)
         class_record = data["class_record_auto_fetch_data"]
         user_id = data["user_id"]
         lastid = data["lastid"]
-        count = AutoFetchModel.objects.filter(user_id=user_id).count()
-        if count == 0:
-            s = AutoFetchModel(
-                user_id=user_id, category="auto-fetch-data", name=class_record
-            )
-            s.save()
-        else:
-            AutoFetchModel.objects.filter(
-                user_id=user_id, category="auto-fetch-data"
-            ).update(name=class_record)
+        obj, created = AutoFetchModel.objects.update_or_create(
+            user_id=user_id, category="auto-fetch-data", defaults={"name": class_record}
+        )
 
         inputvalues = [
             {"edit_values": "test values"},
@@ -3184,41 +3092,35 @@ def plo(request):
         ]
 
         input_w_values_data = data["input_w_values_data"]
-        print(data["input_w_values_data"])
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
-        input_file_path = os.path.join(script_directory, "plo.docx")
-
+        input_file_path = os.path.join(script_directory, "ploplo.docx")
         output_file_path = os.path.join(
             script_directory, f"plo-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="plo-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
         a = DownloadModel(user_id=user_id, record_id=lastid, form_name="plo")
         a.save()
+
+        end = time.time()
+        print("End-Time: ", end)
+        print("Time: ", end - start)
+
+        response = FileResponse(open(output_file_path, "rb"))
+        response["Content-Disposition"] = 'attachment; filename="plo-output.docx"'
         return response
+
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
@@ -3231,10 +3133,6 @@ def plo_update(request):
         user_id = data["user_id"]
         lastid = data["updateid"]
 
-        DownloadModel.objects.filter(
-            user_id=user_id, record_id=lastid, form_name="plo"
-        ).delete()
-
         inputvalues = [
             {"edit_values": "test values"},
             {"button_count": "test values"},
@@ -3598,40 +3496,35 @@ def plo_update(request):
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
         input_file_path = os.path.join(script_directory, "plo.docx")
-
-        filetorm = os.path.join(script_directory, f"plo-{user_id}-{lastid}.docx")
-        os.remove(filetorm)
-
         output_file_path = os.path.join(
             script_directory, f"plo-{user_id}-{lastid}.docx"
         )
-        with open(input_file_path, "rb") as original_file:
-            with open(output_file_path, "wb") as new_file:
-                new_file.write(original_file.read())
-
         doc = Document(input_file_path)
 
-        for item in inputvalues:
-            for key, value in item.items():
-                for data_item in input_w_values_data:
-                    if key in data_item:
-                        old_text = "##" + str(key)
-                        new_text = data_item[key]
-                        replace_text(doc, old_text, new_text)
-                        break  # Break out of the inner loop once the key is found
-                else:
-                    old_text = "##" + str(key)
-                    new_text = value
-                    replace_text(doc, old_text, new_text)
+        replacement_dict = {
+            key: value for item in inputvalues for key, value in item.items()
+        }
+        for data_item in input_w_values_data:
+            replacement_dict.update(data_item)
 
-        doc.save(output_file_path)
+        replace_text_v1(doc, replacement_dict)
 
-        response = FileResponse(open(output_file_path, "rb"))
-        response["Content-Disposition"] = 'attachment; filename="plo-output.docx"'
+        save_document_with_temp(doc, output_file_path)
 
-        a = DownloadModel(user_id=user_id, record_id=lastid, form_name="plo")
-        a.save()
-        return response
+        try:
+            DownloadModel.objects.update_or_create(
+                user_id=user_id, record_id=lastid, form_name="plo", defaults={}
+            )
+        except DownloadModel.MultipleObjectsReturned:
+            DownloadModel.objects.filter(
+                user_id=user_id, record_id=lastid, form_name="plo"
+            ).delete()
+            DownloadModel.objects.get_or_create(
+                user_id=user_id, record_id=lastid, form_name="plo"
+            )
+
+        return JsonResponse({"status": "success", "message": "File created"})
+
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"})
 
