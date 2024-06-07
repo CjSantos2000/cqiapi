@@ -23,19 +23,29 @@ from gspread_formatting import *
 
 
 def replace_text_v1(doc, replacement_dict):
-    def replace_in_paragraph(paragraph, replacement_dict):
+    def replace_in_paragraph(paragraph, replacement_dict, is_from_table: bool = False):
         # for run in paragraph.runs:
         #     # print("paragraph.text", paragraph.text)
         for old_text, new_text in replacement_dict.items():
             if f"##{old_text}" in paragraph.text:
                 # print(f"replace_in_paragraph {run.text} to {new_text}")
-                paragraph.text = paragraph.text.replace(f"##{old_text}", new_text)
+                if is_from_table:
+                    if new_text == "1":
+                        paragraph.text = paragraph.text.replace(f"##{old_text}", "✓")
+                    else:
+                        paragraph.text = paragraph.text.replace(
+                            f"##{old_text}", new_text
+                        )
+                else:
+                    paragraph.text = paragraph.text.replace(f"##{old_text}", new_text)
 
     def replace_in_table(table, replacement_dict):
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
-                    replace_in_paragraph(paragraph, replacement_dict)
+                    replace_in_paragraph(
+                        paragraph, replacement_dict, is_from_table=True
+                    )
 
     for paragraph in doc.paragraphs:
         replace_in_paragraph(paragraph, replacement_dict)
