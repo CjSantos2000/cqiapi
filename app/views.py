@@ -24,18 +24,18 @@ from gspread_formatting import *
 
 def replace_text_v1(doc, replacement_dict):
     def replace_in_paragraph(paragraph, replacement_dict):
-        for run in paragraph.runs:
-            for old_text, new_text in replacement_dict.items():
-                if f"##{old_text}" in run.text:
-                    run.text = run.text.replace(f"##{old_text}", new_text)
-                    print(f"replace_in_paragraph {run.text}")
+        # for run in paragraph.runs:
+        #     # print("paragraph.text", paragraph.text)
+        for old_text, new_text in replacement_dict.items():
+            if f"##{old_text}" in paragraph.text:
+                # print(f"replace_in_paragraph {run.text} to {new_text}")
+                paragraph.text = paragraph.text.replace(f"##{old_text}", new_text)
 
     def replace_in_table(table, replacement_dict):
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
                     replace_in_paragraph(paragraph, replacement_dict)
-                    print(f"replace_in_table {paragraph.text}")
 
     for paragraph in doc.paragraphs:
         replace_in_paragraph(paragraph, replacement_dict)
@@ -289,55 +289,42 @@ def obe(request):
             {"course_description": ""},
             {"course_outcomes": ""},
             {"course_objectives": ""},
-            {"po_a": ""},
             {"a_peo1": ""},
             {"a_peo2": ""},
             {"a_peo3": ""},
-            {"po_b": ""},
             {"b_peo1": ""},
             {"b_peo2": ""},
             {"b_peo3": ""},
-            {"po_c": ""},
             {"c_peo1": ""},
             {"c_peo2": ""},
             {"c_peo3": ""},
-            {"po_d": ""},
             {"d_peo1": ""},
             {"d_peo2": ""},
             {"d_peo3": ""},
-            {"po_e": ""},
             {"e_peo1": ""},
             {"e_peo2": ""},
             {"e_peo3": ""},
-            {"po_f": ""},
             {"f_peo1": ""},
             {"f_peo2": ""},
             {"f_peo3": ""},
-            {"po_g": ""},
             {"g_peo1": ""},
             {"g_peo2": ""},
             {"g_peo3": ""},
-            {"po_h": ""},
             {"h_peo1": ""},
             {"h_peo2": ""},
             {"h_peo3": ""},
-            {"po_i": ""},
             {"i_peo1": ""},
             {"i_peo2": ""},
             {"i_peo3": ""},
-            {"po_j": ""},
             {"j_peo1": ""},
             {"j_peo2": ""},
             {"j_peo3": ""},
-            {"po_k": ""},
             {"k_peo1": ""},
             {"k_peo2": ""},
             {"k_peo3": ""},
-            {"po_l": ""},
             {"l_peo1": ""},
             {"l_peo2": ""},
             {"l_peo3": ""},
-            {"po_m": ""},
             {"m_peo1": ""},
             {"m_peo2": ""},
             {"m_peo3": ""},
