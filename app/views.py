@@ -32,6 +32,8 @@ def replace_text_v1(doc, replacement_dict):
                 if is_from_table:
                     if new_text == "1":
                         paragraph.text = paragraph.text.replace(f"##{old_text}", "✓")
+                    elif new_text == "0":
+                        paragraph.text = paragraph.text.replace(f"##{old_text}", "")
                     else:
                         paragraph.text = paragraph.text.replace(
                             f"##{old_text}", new_text
