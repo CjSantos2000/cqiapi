@@ -2089,21 +2089,21 @@ def datasheet(request):
         # Data
         x_labels = ["CLO1", "CLO2", "CLO3", "PLO"]
         total_attainment = [
-            int(replacement_dict["total_attainment_clo1"]),
-            int(replacement_dict["total_attainment_clo2"]),
-            int(replacement_dict["total_attainment_clo3"]),
+            float(replacement_dict["total_attainment_clo1"]),
+            float(replacement_dict["total_attainment_clo2"]),
+            float(replacement_dict["total_attainment_clo3"]),
             75,
         ]  # Example data
         direct_assessment = [
-            int(replacement_dict["total_direct_clo1"]),
-            int(replacement_dict["total_direct_clo2"]),
-            int(replacement_dict["total_direct_clo3"]),
+            float(replacement_dict["total_direct_clo1"]),
+            float(replacement_dict["total_direct_clo2"]),
+            float(replacement_dict["total_direct_clo3"]),
             None,
         ]  # None for PLO
         indirect_assessment = [
-            int(replacement_dict["total_indirect_clo1"]),
-            int(replacement_dict["total_indirect_clo2"]),
-            int(replacement_dict["total_indirect_clo3"]),
+            float(replacement_dict["total_indirect_clo1"]),
+            float(replacement_dict["total_indirect_clo2"]),
+            float(replacement_dict["total_indirect_clo3"]),
             None,
         ]  # None for PLO
         plot_data = (
