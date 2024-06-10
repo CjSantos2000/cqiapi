@@ -2095,15 +2095,15 @@ def datasheet(request):
             75,
         ]  # Example data
         direct_assessment = [
-            float(replacement_dict["total_direct_clo1"]),
-            float(replacement_dict["total_direct_clo2"]),
-            float(replacement_dict["total_direct_clo3"]),
+            float(replacement_dict["direct_clo1"]),
+            float(replacement_dict["direct_clo2"]),
+            float(replacement_dict["direct_clo3"]),
             None,
         ]  # None for PLO
         indirect_assessment = [
-            float(replacement_dict["total_indirect_clo1"]),
-            float(replacement_dict["total_indirect_clo2"]),
-            float(replacement_dict["total_indirect_clo3"]),
+            float(replacement_dict["indirect_clo1"]),
+            float(replacement_dict["indirect_clo2"]),
+            float(replacement_dict["indirect_clo3"]),
             None,
         ]  # None for PLO
         plot_data = (
