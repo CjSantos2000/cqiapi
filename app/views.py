@@ -21,6 +21,14 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from gspread_formatting import *
 
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from docx.shared import Inches
+
+# Use the Agg backend for non-GUI environments
+matplotlib.use("Agg")
+
 
 def replace_text_v1(doc, replacement_dict):
     def replace_in_paragraph(paragraph, replacement_dict, is_from_table: bool = False):
@@ -1938,7 +1946,6 @@ def datasheet(request):
             {"total_attainment_clo1": ""},
             {"total_attainment_clo2": ""},
             {"total_attainment_clo3": ""},
-            {"total_attainment_clo3": ""},
             {"weight_clo1": ""},
             {"direct_clo1": ""},
             {"indirect_clo1": ""},
@@ -2078,6 +2085,106 @@ def datasheet(request):
         }
         for data_item in input_w_values_data:
             replacement_dict.update(data_item)
+
+        # Data
+        x_labels = ["CLO1", "CLO2", "CLO3", "PLO"]
+        total_attainment = [
+            int(replacement_dict["total_attainment_clo1"]),
+            int(replacement_dict["total_attainment_clo2"]),
+            int(replacement_dict["total_attainment_clo3"]),
+            75,
+        ]  # Example data
+        direct_assessment = [
+            int(replacement_dict["total_direct_clo1"]),
+            int(replacement_dict["total_direct_clo2"]),
+            int(replacement_dict["total_direct_clo3"]),
+            None,
+        ]  # None for PLO
+        indirect_assessment = [
+            int(replacement_dict["total_indirect_clo1"]),
+            int(replacement_dict["total_indirect_clo2"]),
+            int(replacement_dict["total_indirect_clo3"]),
+            None,
+        ]  # None for PLO
+        plot_data = (
+            sum([total_attainment[0], total_attainment[1], total_attainment[2]]) / 3
+        )
+
+        print(total_attainment)
+        print(direct_assessment)
+        print(indirect_assessment)
+        print("Plot data: ", plot_data)
+
+        # Bar width
+        bar_width = 0.2
+
+        # Positions of the bars on the x-axis
+        r1 = np.arange(len(x_labels))
+        r2 = [x + bar_width for x in r1[:-1]]  # Only for CLOs
+        r3 = [x + 2 * bar_width for x in r1[:-1]]  # Only for CLOs
+
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        plt.bar(
+            r1,
+            total_attainment,
+            color="skyblue",
+            width=bar_width,
+            edgecolor="grey",
+            label="Total Attainment",
+        )
+        plt.bar(
+            r2,
+            direct_assessment[:-1],
+            color="violet",
+            width=bar_width,
+            edgecolor="grey",
+            label="Direct Assessment",
+        )
+        plt.bar(
+            r3,
+            indirect_assessment[:-1],
+            color="yellow",
+            width=bar_width,
+            edgecolor="grey",
+            label="Indirect Assessment",
+        )
+
+        # Add a single bar for PLO
+        plt.bar(
+            len(x_labels) - 1,
+            plot_data,
+            color="white",
+            width=bar_width,
+            edgecolor="grey",
+            label="PLO",
+        )
+
+        # Labels and title
+        plt.xlabel("Assessment Type", fontweight="bold")
+        plt.ylabel("Scores", fontweight="bold")
+        plt.title("CLO and PLO Assessment")
+        plt.xticks([r + bar_width for r in range(len(x_labels))], x_labels)
+
+        # Adding the legend
+        plt.legend()
+
+        # Save the plot as an image
+        plt.savefig(f"{script_directory}/bar_chart.png")
+
+        for paragraph in doc.paragraphs:
+            if "##chart" in paragraph.text:
+                found = True
+                print("Placeholder found in paragraph")
+                parts = paragraph.text.split("##chart")
+                paragraph.text = parts[0]
+                run = paragraph.add_run()
+                run.add_picture(f"{script_directory}/bar_chart.png", width=Inches(6))
+                if len(parts) > 1:
+                    run = paragraph.add_run(parts[1])
+
+        if not found:
+            print("Placeholder not found in paragraphs")
 
         replace_text_v1(doc, replacement_dict)
 
