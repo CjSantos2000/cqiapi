@@ -3231,9 +3231,7 @@ def tos_update(request):
 
 @csrf_exempt
 def plo(request):
-    print("request.body: ", request.body)
     if request.method == "POST":
-        print("request.body: ", request.body)
         start = time.time()
         # Process incoming data
         data = json.loads(request.body)
@@ -3606,7 +3604,7 @@ def plo(request):
         input_w_values_data = data["input_w_values_data"]
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
-        input_file_path = os.path.join(script_directory, "ploplo.docx")
+        input_file_path = os.path.join(script_directory, "plo.docx")
         output_file_path = os.path.join(
             script_directory, f"plo-{user_id}-{lastid}.docx"
         )
@@ -3617,6 +3615,101 @@ def plo(request):
         }
         for data_item in input_w_values_data:
             replacement_dict.update(data_item)
+
+        ## PLO Chart 1
+        # Extracting data
+        chart1_x_labels = data["assessmentChart"]["labels"]
+        chart1_values = data["assessmentChart"]["datasets"][0]["data"]
+
+        # Converting None values to 0
+        chart1_values = [0 if x is None else x for x in chart1_values]
+
+        # Bar width
+        bar_width = 0.5
+
+        # Positions of the bars on the x-axis
+        r1 = np.arange(len(chart1_x_labels))
+
+        # Plotting
+        plt.figure(figsize=(14, 6))
+        plt.bar(
+            r1,
+            chart1_values,
+            color="skyblue",
+            width=bar_width,
+            edgecolor="grey",
+            label="CLO average",
+        )
+
+        # Labels and title
+        plt.xlabel("PLO", fontweight="bold")
+        plt.ylabel("Scores", fontweight="bold")
+        plt.title("CLO Average")
+        plt.xticks([r for r in range(len(chart1_x_labels))], chart1_x_labels)
+
+        # Adding the legend
+        plt.legend()
+
+        plt.savefig(f"{script_directory}/plo_chart1.png")
+
+        ## PLO Chart 2
+        # Extracting data
+        chart2_x_labels = data["assessmentChart1"]["labels"]
+        chart2_values = data["assessmentChart1"]["datasets"][0]["data"]
+
+        # Converting None values to 0
+        chart2_values = [0 if x is None else x for x in chart2_values]
+
+        # Bar width
+        chart2_bar_width = 0.5
+
+        # Positions of the bars on the x-axis
+        chart2_r1 = np.arange(len(chart2_x_labels))
+
+        # Plotting
+        plt.figure(figsize=(14, 6))
+        plt.bar(
+            chart2_r1,
+            chart2_values,
+            color="skyblue",
+            width=chart2_bar_width,
+            edgecolor="grey",
+            label="CLO average",
+        )
+
+        # Labels and title
+        plt.xlabel("PLO", fontweight="bold")
+        plt.ylabel("Scores", fontweight="bold")
+        plt.title("CLO Average")
+        plt.xticks([r for r in range(len(chart2_x_labels))], chart2_x_labels)
+
+        # Adding the legend
+        plt.legend()
+
+        plt.savefig(f"{script_directory}/plo_chart2.png")
+
+        for paragraph in doc.paragraphs:
+            if "##chart1" in paragraph.text:
+                found = True
+                print("Placeholder found in paragraph")
+                parts = paragraph.text.split("##chart1")
+                paragraph.text = parts[0]
+                run = paragraph.add_run()
+                run.add_picture(f"{script_directory}/plo_chart1.png", width=Inches(8))
+                if len(parts) > 1:
+                    run = paragraph.add_run(parts[1])
+            if "##chart2" in paragraph.text:
+                found = True
+                print("Placeholder found in paragraph")
+                parts = paragraph.text.split("##chart2")
+                paragraph.text = parts[0]
+                run = paragraph.add_run()
+                run.add_picture(f"{script_directory}/plo_chart2.png", width=Inches(8))
+                if len(parts) > 1:
+                    run = paragraph.add_run(parts[1])
+
+        if not found:
+            print("Placeholder not found in paragraphs")
 
         replace_text_v1(doc, replacement_dict)
 
