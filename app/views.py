@@ -3231,7 +3231,9 @@ def tos_update(request):
 
 @csrf_exempt
 def plo(request):
+    print("request.body: ", request.body)
     if request.method == "POST":
+        print("request.body: ", request.body)
         start = time.time()
         # Process incoming data
         data = json.loads(request.body)
